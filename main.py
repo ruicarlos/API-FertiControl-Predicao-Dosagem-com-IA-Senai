@@ -1,4 +1,3 @@
-# main.py
 from fastapi import FastAPI, Depends, HTTPException, UploadFile, File, Form, BackgroundTasks
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
@@ -24,37 +23,31 @@ from schemas import (
     IndicadorDashboardOut
 )
 
-# Carrega o modelo treinado
+
 modelo = joblib.load("modelo_dosagem.pkl")
 
-# Define o app
+
 app = FastAPI(title="API de Validação FertiControl IA - Deway")
 
-#regex_origens_permitidas = r"^https?:\/\/((localhost(:\d+)?)|(ferticontrol-web\.vercel\.app)).*" # adicionado
 
 app.add_middleware(
     CORSMiddleware,
-    # allow_origin_regex=regex_origens_permitidas,  # adicionado
     allow_origins=["*"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
-# Cria o diretório para salvar as imagens dos sensores, se não existir
+
 os.makedirs("static/sensor_images", exist_ok=True)
-# Monta o diretório 'static' para ser acessível via /static na URL
 app.mount("/static", StaticFiles(directory="static"), name="static")
 
-
-# Modelo de entrada para predição
 class FertilizanteInput(BaseModel):
     N: int
     P: int
     K: int
     volume: float
 
-# --- Autenticação e Empresa ---
 
 @app.post("/login", response_model=UsuarioOut)
 def login(dados: UsuarioLogin, db: Session = Depends(get_db)):
@@ -99,7 +92,6 @@ def obter_empresa(empresa_id: int, db: Session = Depends(get_db)):
         raise HTTPException(status_code=404, detail="Empresa não encontrada")
     return empresa
 
-# --- NOVO MÉTODO DELETE ADICIONADO AQUI ---
 @app.delete("/empresas/{empresa_id}")
 def deletar_empresa(empresa_id: int, db: Session = Depends(get_db)):
     """
@@ -109,17 +101,14 @@ def deletar_empresa(empresa_id: int, db: Session = Depends(get_db)):
     if not empresa:
         raise HTTPException(status_code=404, detail="Empresa não encontrada")
 
-    # Deleta usuários associados à empresa primeiro para evitar violação de chave estrangeira
     db.query(Usuario).filter(Usuario.empresa == empresa_id).delete()
     
-    # Agora deleta a empresa
     db.delete(empresa)
     
     db.commit()
     return {"detail": "Empresa e usuários associados deletados com sucesso"}
 
 
-# --- Predição ---
 
 @app.post("/prever_dosagem")
 def prever_dosagem(dados: FertilizanteInput, db: Session = Depends(get_db)):
@@ -149,8 +138,6 @@ def criar_producao(producao: ProducaoCreate, background_tasks: BackgroundTasks, 
     db.add(db_producao)
     db.commit()
     db.refresh(db_producao)
-
-    # Se a produção for criada com o status "Produzir", adiciona a tarefa de simulação
     if producao.status == 'Produzir':
         background_tasks.add_task(iniciar_simulacao_dosagem, db_producao.id)
 
@@ -252,26 +239,21 @@ async def atualizar_sensor(
     if not db_sensor:
         raise HTTPException(status_code=404, detail="Sensor não encontrado")
 
-    # Opcional: Validar se o sensor pertence à empresa que está editando
     if db_sensor.empresa != empresa:
         raise HTTPException(status_code=403, detail="Acesso não autorizado para editar este sensor")
 
-    # Atualiza os campos de texto
     db_sensor.sensor = sensor
     db_sensor.device = device
     db_sensor.status = status
     db_sensor.ip = ip             
     db_sensor.porta = porta       
 
-    # Se uma nova imagem foi enviada, atualiza
     if imagem:
-        # Opcional: Deletar a imagem antiga do servidor para não acumular lixo
         if db_sensor.imagem_url:
             old_image_path = db_sensor.imagem_url.lstrip('/')
             if os.path.exists(old_image_path):
                 os.remove(old_image_path)
 
-        # Salva a nova imagem
         file_extension = imagem.filename.split('.')[-1]
         unique_filename = f"{uuid.uuid4()}.{file_extension}"
         file_path = f"static/sensor_images/{unique_filename}"
@@ -323,30 +305,23 @@ def criar_laudo(laudo: LaudoCreate, db: Session = Depends(get_db)):
     Cria um novo laudo. Atualiza o status da produção associada
     tanto para laudos Aprovados quanto Reprovados.
     """
-    # 1. Cria o novo objeto de laudo
     db_laudo = Laudo(**laudo.dict())
     db.add(db_laudo)
 
-    # --- LÓGICA ATUALIZADA ---
-    # 2. Verifica se o laudo tem uma produção associada
     if laudo.producao_id:
         db_producao = db.query(Producao).filter(Producao.id == laudo.producao_id).first()
 
-        # Se a produção for encontrada, aplica as regras
         if db_producao:
-            # A produção é considerada 'Concluída' em ambos os casos, pois o processo de análise terminou.
             db_producao.status = 'Concluído'
 
-            # Define o resultado do laudo na produção com base no tipo do laudo
+
             if laudo.tipo == 'Aprovado':
                 db_producao.laudo = 'Conforme'
             elif laudo.tipo == 'Reprovado':
                 db_producao.laudo = 'Rejeitado'
 
-    # 3. Salva todas as alterações (o novo laudo e a atualização da produção)
     db.commit()
 
-    # 4. Atualiza o objeto do laudo com os dados do banco
     db.refresh(db_laudo)
 
     return db_laudo
@@ -358,9 +333,6 @@ def obter_laudo(laudo_id: int, empresa_id: int, db: Session = Depends(get_db)):
         raise HTTPException(status_code=404, detail="Laudo não encontrado ou não pertence a esta empresa")
     return laudo
 
-# --- NOVAS ROTAS PARA INDICADORES DO DASHBOARD ---
-
-# ROTA CORRIGIDA para consistência com o frontend
 @app.post("/indicadores_dashboard", response_model=IndicadorDashboardOut)
 def salvar_dados_grafico(
     dados: IndicadorDashboardCreate, db: Session = Depends(get_db)
@@ -395,8 +367,6 @@ def salvar_dados_grafico(
     db.refresh(db_indicador)
     return db_indicador
 
-
-# ROTA CORRIGIDA para consistência com o frontend
 @app.get("/indicadores_dashboard/latest", response_model=Optional[IndicadorDashboardOut])
 def obter_ultimos_dados_grafico(empresa_id: int, db: Session = Depends(get_db)):
     """
@@ -407,7 +377,6 @@ def obter_ultimos_dados_grafico(empresa_id: int, db: Session = Depends(get_db)):
              .order_by(IndicadorDashboard.data.desc())\
              .first()
 
-# Adicione esta função em main.py, na seção de Produção
 
 @app.get("/producao/media_conformidade", response_model=float)
 def obter_media_conformidade(empresa_id: int, db: Session = Depends(get_db)):
@@ -415,31 +384,24 @@ def obter_media_conformidade(empresa_id: int, db: Session = Depends(get_db)):
     Calcula a porcentagem de produções concluídas que estão em conformidade.
     A conformidade é definida pelo campo 'laudo' sendo igual a 'Conforme'.
     """
-    # Conta todas as produções que foram concluídas para a empresa
     total_concluidas = db.query(Producao).filter(
         Producao.empresa == empresa_id,
         Producao.status == 'Concluído'
     ).count()
 
-    # Se não houver produções concluídas, a conformidade é 0 para evitar divisão por zero
     if total_concluidas == 0:
         return 0.0
 
-    # Conta as produções concluídas que têm o laudo "Conforme"
     total_conforme = db.query(Producao).filter(
         Producao.empresa == empresa_id,
         Producao.status == 'Concluído',
         Producao.laudo == 'Conforme'
     ).count()
 
-    # Calcula a porcentagem
     media = (total_conforme / total_concluidas) * 100
 
     return round(media, 2)
 
-
-# --- 2. ADICIONE A NOVA FUNÇÃO DE SIMULAÇÃO (Pode ser antes da rota criar_producao) ---
-# SUBSTITUA A SUA FUNÇÃO ANTIGA POR ESTA VERSÃO OTIMIZADA
 def iniciar_simulacao_dosagem(producao_id: int):
     """
     Simula o processo de dosagem de forma mais rápida e utilizando os
@@ -447,30 +409,23 @@ def iniciar_simulacao_dosagem(producao_id: int):
     """
     print(f"--- Iniciando simulação de dosagem para Produção ID: {producao_id} ---")
 
-    # Cria uma nova sessão de DB exclusiva para esta tarefa
     db = SessionLocal()
     try:
-        # Busca os dados da produção que será simulada
         db_producao = db.query(Producao).filter(Producao.id == producao_id).first()
         if not db_producao:
             print(f"[ERRO] Produção ID {producao_id} não encontrada.")
             return
 
-        # --- MUDANÇA 1: BUSCAR SENSORES REAIS DO BANCO DE DADOS ---
-        # Busca os nomes dos sensores cadastrados para a empresa desta produção.
         sensores_da_empresa = db.query(Sensor.sensor).filter(Sensor.empresa == db_producao.empresa).all()
 
-        # Extrai os nomes da lista de tuplas retornada pela query
         lista_nomes_sensores = [s[0] for s in sensores_da_empresa]
 
         if not lista_nomes_sensores:
             print(f"[ERRO] Nenhum sensor cadastrado para a empresa ID {db_producao.empresa}. Abortando simulação.")
-            db_producao.status = 'Falhou' # Atualiza o status para indicar o erro
+            db_producao.status = 'Falhou' 
             db.commit()
             return
 
-        # Mapeia dinamicamente os sensores aos valores de Nitrogênio, Fosfato e Potássio.
-        # Usa o operador de módulo (%) para evitar erros caso haja menos de 3 sensores.
         sensor_n = lista_nomes_sensores[0]
         sensor_p = lista_nomes_sensores[1 % len(lista_nomes_sensores)]
         sensor_k = lista_nomes_sensores[2 % len(lista_nomes_sensores)]
@@ -481,30 +436,22 @@ def iniciar_simulacao_dosagem(producao_id: int):
             sensor_k: db_producao.sk       # Potássio
         }
 
-        # --- MUDANÇA 2: SIMULAÇÃO MAIS RÁPIDA E BASEADA EM PASSOS ---
-        num_passos = 8 # Define um número fixo de passos para a simulação
+        num_passos = 8 
 
-        # Itera sobre cada sensor/insumo para simular a dosagem
         for sensor_nome, quantidade_final in dosagens_a_simular.items():
-            # Pula a simulação para este nutriente se a quantidade for zero
             if quantidade_final <= 0:
                 print(f"[{sensor_nome}] Quantidade é 0. Pulando dosagem.")
                 continue
 
             print(f"[{sensor_nome}] Iniciando dosagem. Meta: {quantidade_final:.2f}g")
 
-            # Loop que executa um número fixo de passos, tornando a duração previsível
             for passo in range(1, num_passos + 1):
-                # Calcula o peso atual proporcionalmente ao passo atual
                 peso_atual = (quantidade_final / num_passos) * passo
-
-                # Garante que o peso não ultrapasse a meta final e arredonda
                 peso_atual = round(min(peso_atual, quantidade_final), 2)
 
-                # Cria o payload para a tabela de rastreio
                 payload_rastreio = {
                     "producao": producao_id,
-                    "sensor": sensor_nome, # <-- Usa o nome do sensor real
+                    "sensor": sensor_nome, 
                     "quantidade": quantidade_final,
                     "peso": peso_atual,
                     "data": datetime.now().date(),
@@ -513,27 +460,23 @@ def iniciar_simulacao_dosagem(producao_id: int):
                     "empresa": db_producao.empresa
                 }
 
-                # Cria e salva o registro de rastreio diretamente no banco
                 novo_rastreio = Rastreio(**payload_rastreio)
                 db.add(novo_rastreio)
                 db.commit()
 
                 print(f"[{sensor_nome}] Passo {passo}/{num_passos} - Peso atual: {peso_atual:.2f}g")
 
-                # Pausa menor para uma simulação mais rápida
-                time.sleep(0.2) # <-- Reduzido de 1s para 0.2s
+                time.sleep(0.2) 
 
             print(f"[{sensor_nome}] Dosagem finalizada.")
 
-        # Ao final de todas as dosagens, atualiza o status da produção
-        db_producao.status = 'Em Análise' # Próxima etapa do processo
+        db_producao.status = 'Em Análise' 
         db.commit()
 
         print(f"--- Simulação finalizada. Produção ID {producao_id} atualizada para 'Em Análise' ---")
 
     except Exception as e:
         print(f"[ERRO GERAL] Ocorreu um erro durante a simulação para a produção ID {producao_id}: {e}")
-        # Tenta reverter o status da produção em caso de falha inesperada
         db_producao = db.query(Producao).filter(Producao.id == producao_id).first()
         if db_producao:
             db_producao.status = 'Falhou'
@@ -541,10 +484,8 @@ def iniciar_simulacao_dosagem(producao_id: int):
     finally:
         db.close()
 
-# --- Entry point ---
+
 if __name__ == "__main__":
     import uvicorn
-    # O ideal é usar a string 'main:app' para que o reload funcione corretamente
-    # com o uvicorn instalado no ambiente virtual.
     port = int(os.environ.get("PORT", 8000))
     uvicorn.run("main:app", host="0.0.0.0", port=port, reload=True)

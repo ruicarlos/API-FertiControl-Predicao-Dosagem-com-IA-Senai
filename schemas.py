@@ -51,9 +51,6 @@ class EmpresaOut(EmpresaBase):
     class Config:
         from_attributes  = True
 
-
-
-# Produção (Não muda)
 class ProducaoBase(BaseModel):
     tipo: str
     volume: float
@@ -92,7 +89,6 @@ class ProducaoOut(ProducaoBase):
     class Config:
         from_attributes = True
 
-# Fertilizante (Não muda)
 class FertilizanteBase(BaseModel):
     fertilizante: str
     n: int
@@ -115,7 +111,6 @@ class FertilizanteOut(FertilizanteBase):
     class Config:
         from_attributes = True
 
-# Sensor (MODIFICADO)
 class SensorBase(BaseModel):
     sensor: str
     device: str
@@ -132,7 +127,6 @@ class SensorUpdate(BaseModel):
     sensor: Optional[str] = None
     device: Optional[str] = None
     status: Optional[str] = None
-    # A atualização da imagem pode ser tratada em um endpoint separado se necessário
 
 class SensorOut(SensorBase):
     id: int
@@ -141,7 +135,6 @@ class SensorOut(SensorBase):
         from_attributes = True
 
 
-# Rastreio (Não muda)
 class RastreioBase(BaseModel):
     producao: int
     sensor: str
@@ -171,7 +164,6 @@ class RastreioOut(RastreioBase):
         from_attributes = True
 
 
-# Laudo (Não muda)
 class LaudoBase(BaseModel):
     tipo: str
     texto: str
@@ -189,10 +181,9 @@ class LaudoOut(LaudoBase):
        from_attributes = True
 
 
-# --- NOVOS SCHEMAS PARA O DASHBOARD ---
 
 class IndicadorDashboardBase(BaseModel):
-    # OEE
+
     disponibilidade: Optional[float] = None
     performance: Optional[float] = None
     qualidade: Optional[float] = None
@@ -211,7 +202,6 @@ class IndicadorDashboardOut(IndicadorDashboardBase):
     id: int
     data: date
     empresa_id: int
-    # Campos calculados
     oee: Optional[float] = None
     eficiencia_operacional: Optional[float] = None
     produtividade: Optional[float] = None

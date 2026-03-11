@@ -1,9 +1,8 @@
 # models.py
 from sqlalchemy import Column, ForeignKey, Integer, String, Boolean, TIMESTAMP, Float, Date, Text
 from database import Base
-from sqlalchemy.sql import func # Importação necessária
+from sqlalchemy.sql import func 
 
-# Modelo Empresa (Não muda)
 class Empresa(Base):
     __tablename__ = "empresas"
     id = Column(Integer, primary_key=True, autoincrement=True)
@@ -19,7 +18,7 @@ class Empresa(Base):
     responsavel_email = Column(String(255), nullable=False)
     ativo = Column(Boolean, nullable=False, default=True)
 
-# Modelo Usuario (Não muda)
+# Modelo Usuario 
 class Usuario(Base):
     __tablename__ = "usuarios"
     id = Column(Integer, primary_key=True, index=True)
@@ -29,7 +28,7 @@ class Usuario(Base):
     role = Column(String(50), default="user")
     empresa = Column(Integer, ForeignKey("empresas.id"), nullable=True)
 
-# Modelo Producao (Não muda)
+# Modelo Producao
 class Producao(Base):
     __tablename__ = "producao"
     id = Column(Integer, primary_key=True, autoincrement=True)
@@ -47,7 +46,7 @@ class Producao(Base):
     potassio = Column(String(20), nullable=True)
     empresa = Column(Integer, ForeignKey("empresas.id"))
 
-# Modelo Fertilizante (Não muda)
+# Modelo Fertilizante
 class Fertilizante(Base):
     __tablename__ = "fertilizante"
     id = Column(Integer, primary_key=True, autoincrement=True)
@@ -57,7 +56,7 @@ class Fertilizante(Base):
     k = Column(Integer, nullable=False)
     empresa = Column(Integer, ForeignKey("empresas.id"))
 
-# Modelo Sensor (MODIFICADO)
+# Modelo Sensor 
 class Sensor(Base):
     __tablename__ = "sensor"
     id = Column(Integer, primary_key=True, autoincrement=True)
@@ -66,10 +65,10 @@ class Sensor(Base):
     status = Column(String(10), nullable=False)
     porta = Column(String(10), nullable=False)
     ip = Column(String(25), nullable=False)
-    imagem_url = Column(String(512), nullable=True) # <-- NOVO CAMPO
+    imagem_url = Column(String(512), nullable=True)
     empresa = Column(Integer, ForeignKey("empresas.id"))
 
-# Modelo Rastreio (Não muda)
+# Modelo Rastreio 
 class Rastreio(Base):
     __tablename__ = "rastreio"
     id = Column(Integer, primary_key=True, autoincrement=True)
@@ -82,7 +81,7 @@ class Rastreio(Base):
     status = Column(String(10), nullable=False)
     empresa = Column(Integer, ForeignKey("empresas.id"))
 
-# Modelo Laudo (Não muda)
+# Modelo Laudo 
 class Laudo(Base):
     __tablename__ = "laudos"
     id = Column(Integer, primary_key=True, autoincrement=True)
